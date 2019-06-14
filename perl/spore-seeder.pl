@@ -17,40 +17,26 @@ use Getopt::Long;
 
 # rng address
 my $RNDADDENTROPY = 0x40085203;
-
-#
-# Spore server and URLs
-#
-my $sporeServer = "rootofqaos.com";
-my $infoURL = "http://$sporeServer/eaasp/getInfo";
-my $certChainURL = "http://$sporeServer/eaasp/getCertChain";
-my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
-
 my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
 
 #
 # Usage
 #
 sub usage {
+	my ($exit_code) = @_;
 print <<'EOT';
-
-Error: invalid argument(s).
-
-Usage: perl p [-c] [-i] [-v] [-s]
-
-With no arguments, p will obtain entropy from the Spore server, mix it with
-local random, and seeded /dev/urandom. If the user does not have permission to
-write to /dev/urandom, the mixed entropy will be displayed for future use.
-
-[-c] retrieve the Spore server certificate chain.
-[-i] retrieve information about the Spore service.
-[-v] retrieve entropy and seed local random in a verbose manner.
-[-s] run the script as a service.
-
-p will attempt to verify signatures whenever possible.
+Usage: perl spore-seeder.pl [option(s)]
+ The options are:
+  -u, --url             Set the spore server address.
+  -c, --certificate		Retrieve the Spore server certificate chain.
+  -i, --info			Retrieve information about the Spore service.
+  -s, --service			Run in service mode.
+  -n, --no-sig          Skip signature verification.
+  -v, --verbose			Show additional messages.
+  -h, --help			Display this information.
 
 EOT
-exit 1;
+exit $exit_code;
 }
 
 sub is_true {
@@ -387,8 +373,8 @@ sub avail_entropy {
 	return $level;
 }
 
-sub do_seeding {
-	my ($URL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold) = @_;
+sub do_query {
+	my ($URL, $certChainURL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold) = @_;
 	my $certificateChain = "";
 	my @claims;
 	my $challenge = sprintf("%08X", rand(0xffffffff));
@@ -407,7 +393,7 @@ sub do_seeding {
 SEED:
 	my $result = get_entropy($URL, $challenge);
 	if($result == 1) {
-		printf("Error: Failed to contact spore server: $sporeServer\n");
+		printf("Error: Failed to contact spore server: $URL\n");
 		exit 1;
 	}
 
@@ -511,58 +497,74 @@ SEED:
 }
 
 #
-# Start of program
+# Spore server and URLs
 #
+my $sporeServer = "rootofqaos.com";
+my $infoURL = "http://$sporeServer/eaasp/getInfo";
+my $certChainURL = "http://$sporeServer/eaasp/getCertChain";
+my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
+
 my $certchain = 0;
 my $info = 0;
 my $verbose = 0;
 my $service = 0;
+my $help = 0;
+my $opt_url = '';
 my $URL = "";
+my $skip_sig_validate = 0;
 
-#
-# process command-line arguments
-#
-if($#ARGV eq 0) {
-	if($ARGV[0] =~ /^-c$/) {
-		$certchain = 1;
-		$URL = $certChainURL;
-	} elsif($ARGV[0] =~ /^-cv$/) {
-		$certchain = 1;
-		$URL = $certChainURL;
-		$verbose = 1;
-	} elsif($ARGV[0] =~ /^-i$/) {
-		$info = 1;
-		$URL = $infoURL;
-	} elsif($ARGV[0] =~ /^-iv$/) {
-		$info = 1;
-		$URL = $infoURL;
-		$verbose = 1;
-	} elsif($ARGV[0] =~ /^-v$/) {
-		$verbose = 1;
-		$URL = $entropyURL;
-	} elsif($ARGV[0] =~ /^-s$/) {
-		$service = 1;
-		$URL = $entropyURL;
-	} elsif($ARGV[0] =~ /^-sv$/) {
-		$verbose = 1;
-		$service = 1;
-		$URL = $entropyURL;
-	} else {
-		usage();
-	}
-} elsif($#ARGV > 0) {
-	usage();
-} else {
-	$URL = $entropyURL;
+GetOptions(
+	"certificate" 	=> \$certchain,
+	"info"   		=> \$info,
+	"verbose"  		=> \$verbose,
+	"help"  		=> \$help,
+	"service"  		=> \$service,
+	"url=s"    		=> \$opt_url,
+	"no-sig"        => \$skip_sig_validate
+) or usage(1);
+
+if ($help) {
+	usage(0);
+}
+
+if ($certchain && $info) {
+	print "Error: --certificate (-c) and --info (-i) cannot be specified togother.\n";
+	usage(1);
+}
+
+if ($certchain && $service) {
+	print "Error: --certificate (-c) and --service (-s) cannot be specified togother.\n";
+	usage(1);
+}
+
+if ($info && $service) {
+	print "Error: --info (-i) and --service (-s) cannot be specified togother.\n";
+	usage(1);
+}
+
+if ($opt_url) {
+	$infoURL = "http://$opt_url/eaasp/getInfo";
+	$certChainURL = "http://$opt_url/eaasp/getCertChain";
+	$entropyURL = "http://$opt_url/eaasp/getEntropy";
+}
+
+$URL = $entropyURL;
+
+if ($info) {
+	$URL = $infoURL;
+}
+
+if ($certchain) {
+	$URL = $certChainURL;
 }
 
 if($verbose == 1) {
-	printf("Using Spore server: %s\n", $sporeServer);
+	printf("Using Spore server: %s\n", $opt_url || $sporeServer);
 }
-
 
 if ($service) {
 	my %service_config = %{parse_config($SERVICE_CONFIG)};
+	$verbose = is_true($service_config{'verbose'});
 	if ($verbose) {
 		print "Service Config:\n";
 		print Dumper(%service_config);
@@ -597,7 +599,7 @@ if ($service) {
 	}
 	while (1) {
 		my $validateSig = is_true($service_config{'verify'});
-		do_seeding($entropyURL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold);
+		do_query($entropyURL, $certChainURL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold);
 		if ($autoSeed) {
 			# Sleep 0.5 second before checking the entropy.
 			select(undef, undef, undef, 0.5);
@@ -606,5 +608,5 @@ if ($service) {
 		}
 	}
 } else {
-	do_seeding($URL, $info, $certchain, $service, $verbose);
+	do_query($URL, $certChainURL, $info, $certchain, $service, $verbose, !$skip_sig_validate);
 }

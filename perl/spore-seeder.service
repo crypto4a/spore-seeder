@@ -3,7 +3,7 @@ Description=Spore Seeder
 
 [Service]
 AmbientCapabilities=CAP_SYS_ADMIN
-ExecStart=/usr/local/share/spore-seeder/spore-seeder.pl -sv
+ExecStart=/usr/local/share/spore-seeder/spore-seeder.pl --service
 Type=simple
 User=spore
 Restart=on-failure

@@ -82,15 +82,15 @@ address=entropy.2keys.io
 verify=True
 
 # How often spore-seeder should poll the server, in seconds.
-# This value is used when autoFill is False.
-pollInterval=5
+# This value is used when autoSeed is False.
+pollInterval=180
 
 # Should seeder monitor the entropy reading and seed it when it is below a threshold.
 autoSeed=True
 
 # The threshold of entropy. Seeder will start to seed once entropy reading is
 # below this value.
-entropyThreshold=3800
+entropyThreshold=3000
 ```
 
 
