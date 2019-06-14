@@ -1,0 +1,13 @@
+[Unit]
+Description=Spore Seeder
+ConditionFileExecutable=/user/local/spore-seeder/spore-seeder.pl
+
+[Service]
+ExecStart=/usr/local/share/spore-seeder/spore-seeder.pl -sv
+Type=simple
+User=spore
+Restart=on-failure
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

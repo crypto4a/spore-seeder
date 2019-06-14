@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # @(#) Script to interrogate and obtain entropy from a Spore server
 # @(#) $Revision: 1.31 $
 
@@ -11,6 +12,7 @@ use warnings;
 use HTTP::Tiny;
 use JSON::PP;
 use MIME::Base64 qw(decode_base64url);
+use Data::Dumper;
 
 #
 # Spore server and URLs
@@ -19,6 +21,8 @@ my $sporeServer = "entropy.2keys.io";
 my $infoURL = "http://$sporeServer/eaasp/getInfo";
 my $certChainURL = "http://$sporeServer/eaasp/getCertChain";
 my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
+
+my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
 
 #
 # Usage
@@ -43,6 +47,28 @@ p will attempt to verify signatures whenever possible.
 
 EOT
 exit 1;
+}
+
+sub parse_config {
+	my ($config) = @_;
+	open my $in, '<', $config or die $!;
+	my %data;
+	while (<$in>) {
+		chomp;
+		# Skip comment
+  		next if /^#/;
+
+		# Skip blank line
+		next if /^\s*$/;
+
+		if (/^(\w+)\s*=\s*(.*)/) {
+    		my ($key, $value) = ($1, $2);
+    		$data{$key} = $value
+  		} else {
+    		print STDERR "Invalid config format: $_\n";
+  		}
+	}
+	return \%data;
 }
 
 #
@@ -146,9 +172,273 @@ sub write_signature_file {
 	close FH or die $!;
 }
 
-my @claims;
+#
+# Validate signature
+#
+sub validate_signature {
+	my @claims = @{$_[0]};
+	my $verbose = $_[1];
+	my $certificateChain = $_[2];
+
+	#
+	# write the certificate chain file
+	#
+	my $certfile = "/tmp/certificateChain.$$";
+	open(FH, '>', $certfile) or die $!;
+	print FH $certificateChain;
+	close FH or die $!;
+
+	#
+	# write the public key to file
+	#
+	my $keyfile = "/tmp/pubkey.$$";
+	system("openssl x509 -in $certfile -pubkey -noout > $keyfile");
+	if($? != 0) {
+		printf("Error: unable to generate key from certificate chain.\n");
+		return 0;
+	}
+
+	#
+	# write the base64url encoded JWT "header" + "." + "payload" to file
+	#
+	my $tfile = "/tmp/tfile.$$";
+	open(FH, '>', $tfile) or die $!;
+	print FH "$claims[0].$claims[1]";
+	close FH or die $!;
+
+	#
+	# write DER encoded signature to file
+	#
+	my $sigfile = "/tmp/sigfile.$$";
+	write_signature_file(decode_base64url($claims[2]), $sigfile);
+
+	#
+	# perform signature verification
+	#
+	my $r=`openssl dgst -sha384 -verify $keyfile -signature $sigfile $tfile`;
+	if($r !~ /Verified OK/) {
+		printf("r = %s\n", $r);
+		printf("Error: unable to verify signature.\n");
+		return 0;
+	} else {
+		if($verbose == 1) {
+			printf("Claims signature verified successfully.\n");
+		}
+	}
+
+	#
+	# delete temporary files (comment out these lines for debugging)
+	#
+	foreach ($certfile, $keyfile, $sigfile, $tfile) {
+		unlink $_ or warn $!;
+	}
+	return 1;
+}
+
+sub add_entropy {
+	my ($result, $verbose) = @_;
+	if($verbose) {
+		printf("Mixing entropy from Spore server with local random.\n");
+	}
+
+	my $entropy_string = mix_entropy($result->{'entropy'});
+
+	#
+	# write (mixed) entropy to /dev/urandom, or display if no write permissions
+	#
+	if(defined $result->{'entropy'}) {
+		my $filename = '/dev/urandom';
+		if(not -w $filename) {
+			printf("Warning: $filename is not writable.\n");
+			printf("Warning: displaying (mixed) entropy for future use:\n");
+			printf("%s\n", $entropy_string);
+			exit 1;
+		} else {
+			if($verbose == 1) {
+				printf("Seeding entropy to /dev/urandom.\n");
+			}
+			open(FH, '>', $filename) or die $!;
+			print FH $entropy_string;
+			close FH;
+		}
+	}
+}
+
+sub check_claims {
+	my ($claims_ref, $result, $certificateChain, $challenge, $verbose) = @_;
+	my @claims = @{$claims_ref};
+
+	#
+	# confirm response matchs signed claims
+	#
+	my $claims_decoded = decode_base64url($claims[1]);
+	my $signed_json = decode_json($claims_decoded);
+
+	#
+	# getCertChain
+	#
+	if(defined $signed_json->{'certificateChain'}) {
+		#
+		# signed certificateChain
+		#
+		if($certificateChain ne $signed_json->{'certificateChain'}) {
+			printf("Error: signed certificateChain does not match.\n");
+			return 0;
+		}
+		# nothing else to do for a getCertChain request
+		return 1;
+	}
+
+	#
+	# getEntropy
+	#
+	if(defined $signed_json->{'challenge'}) {
+		#
+		# signed challenge
+		#
+		if($challenge ne $signed_json->{'challenge'}) {
+			printf("Error: signed challenge does not match.\n");
+			return 0;
+		} else {
+			if($verbose == 1) {
+				printf("Signed challenge matches ($challenge).\n");
+			}
+		}
+
+		#
+		# signed timestamp
+		#
+		if($result->{'timestamp'} ne $signed_json->{'timestamp'}) {
+			printf("Error: signed timestamp does not match.\n");
+			return 0;
+		} else {
+			if($verbose == 1) {
+				printf("Signed timestamp matches ($result->{'timestamp'}).\n");
+			}
+		}
+
+		#
+		# signed entropy
+		#
+		if($result->{'entropy'} ne $signed_json->{'entropy'}) {
+			printf("Error: signed entropy does not match.\n");
+			return 0;
+		} else {
+			$result->{'entropy'} =~ s/=$//g;
+			if($verbose == 1) {
+				printf("Signed entropy matches ($result->{'entropy'}).\n");
+			}
+		}
+	} # end getEntropy
+	return 1;
+}
+
+sub main {
+	my ($URL, $info, $certchain, $service, $verbose, $validateSig) = @_;
+	my $certificateChain = "";
+	my @claims;
+	my $challenge = sprintf("%08X", rand(0xffffffff));
+	my $window = 60;
+	my $time = time();
+
+	my $result = get_entropy($URL, $challenge);
+	if($result == 1) {
+		printf("Error: Failed to contact spore server: $sporeServer\n");
+		exit 1;
+	}
+
+	#
+	# getInfo: no JSON web token claims to verify, no challenge or timestamp
+	#
+	if($info == 1) {
+		if($result->{'entropySize'} =~ /^\d+/) {
+			printf("%s:", $result->{'name'});
+			printf("%s:", $result->{'entropySize'});
+			printf("%s:", $result->{'signingMechanism'} // "");
+			printf("\n");
+			# exit as there are no claims to process
+			exit 0;
+		} else {
+			printf("Error: unable to process getInfo request.\n");
+			exit 1;
+		}
+	}
+
+	#
+	# getCertChain and getEntropy both have JSON web token claims
+	#
+	my $JWT = $result->{'JWT'} // "";
+
+	if($JWT) {
+		#
+		# $claims[0] = header
+		# $claims[1] = payload
+		# $claims[2] = signature
+		#
+		@claims = split(/\./, "$JWT");
+	}
+
+	#
+	# always validate signed responses
+	# if we don't yet have it, get the public key for signature validation
+	#
+	if(defined $result->{'certificateChain'}) {
+		$certificateChain = $result->{'certificateChain'};
+	} else {
+		my $pkchallenge = sprintf("%08X", rand(0xffffffff));
+		my $pkresult = get_entropy($certChainURL, $pkchallenge);
+		$certificateChain = $pkresult->{'certificateChain'};
+	}
+
+	if($certchain == 1) {
+		if(defined $certificateChain) {
+			printf("%s", $certificateChain);
+			# do not exit; we may need to process web tokens
+		} else {
+			printf("Error: unable to process getCerChain request\n");
+			exit 1;
+		}
+	}
+
+	#
+	# check (unsigned) freshness of response as appropriate
+	#
+	if(defined $result->{'timestsamp'}) {
+		if(($result->{'timestamp'} - $time) > $window) {
+			printf("Error: stale response from server outside window.\n");
+			exit 1;
+		}
+	}
+
+	#
+	# check (unsigned) challenge in response as appropriate
+	#
+	if(defined $result->{'challenge'}) {
+		if($result->{'challenge'} ne $challenge) {
+			printf("Error: received challenge does not match request.\n");
+			exit 1;
+		}
+	}
+
+	if ($validateSig) {
+		if (!validate_signature(\@claims, $verbose, $certificateChain)) {
+			printf("Error: signature verification failed.\n");
+		}
+	} elsif ($verbose) {
+		print "Skip signature validation.\n";
+	}
+
+	if (!check_claims(\@claims, $result, $certificateChain, $challenge, $verbose)) {
+		if ($service) {
+			return;
+		}
+		exit 1;
+	}
+
+	add_entropy($result, $verbose);
+}
+
 my $certchain = 0;
-my $certificateChain = "";
 my $info = 0;
 my $verbose = 0;
 my $service = 0;
@@ -159,25 +449,29 @@ my $URL = "";
 #
 if($#ARGV eq 0) {
 	if($ARGV[0] =~ /^-c$/) {
-			$certchain = 1;
-			$URL = $certChainURL;
+		$certchain = 1;
+		$URL = $certChainURL;
 	} elsif($ARGV[0] =~ /^-cv$/) {
-			$certchain = 1;
-			$URL = $certChainURL;
-			$verbose = 1;
+		$certchain = 1;
+		$URL = $certChainURL;
+		$verbose = 1;
 	} elsif($ARGV[0] =~ /^-i$/) {
-			$info = 1;
-			$URL = $infoURL;
+		$info = 1;
+		$URL = $infoURL;
 	} elsif($ARGV[0] =~ /^-iv$/) {
-			$info = 1;
-			$URL = $infoURL;
-			$verbose = 1;
+		$info = 1;
+		$URL = $infoURL;
+		$verbose = 1;
 	} elsif($ARGV[0] =~ /^-v$/) {
-			$verbose = 1;
-			$URL = $entropyURL;
+		$verbose = 1;
+		$URL = $entropyURL;
 	} elsif($ARGV[0] =~ /^-s$/) {
-			$service = 1;
-			$URL = $entropyURL;
+		$service = 1;
+		$URL = $entropyURL;
+	} elsif($ARGV[0] =~ /^-sv$/) {
+		$verbose = 1;
+		$service = 1;
+		$URL = $entropyURL;
 	} else {
 		usage();
 	}
@@ -187,237 +481,36 @@ if($#ARGV eq 0) {
 	$URL = $entropyURL;
 }
 
-my $challenge = sprintf("%08X", rand(0xffffffff));
-my $window = 60;
-my $time = time();
-
 if($verbose == 1) {
 	printf("Using Spore server: %s\n", $sporeServer);
 }
-my $result = get_entropy($URL, $challenge);
-if($result == 1) {
-	printf("Error: Failed to contact spore server: $sporeServer\n");
-	exit 1;
-}
 
-#
-# getInfo: no JSON web token claims to verify, no challenge or timestamp
-#
-if($info == 1) {
-	if($result->{'entropySize'} =~ /^\d+/) {
-		printf("%s:", $result->{'name'});
-		printf("%s:", $result->{'entropySize'});
-		printf("%s:", $result->{'signingMechanism'} // "");
-		printf("\n");
-		# exit as there are no claims to process
-		exit 0;
-	} else {
-		printf("Error: unable to process getInfo request.\n");
-		exit 1;
+
+if ($service) {
+	my %service_config = %{parse_config($SERVICE_CONFIG)};
+	if ($verbose) {
+		print "Service Config:\n";
+		print Dumper(%service_config);
 	}
-}
-
-#
-# getCertChain and getEntropy both have JSON web token claims
-#
-my $JWT = $result->{'JWT'} // "";
-
-if($JWT) {
-	#
-	# $claims[0] = header
-	# $claims[1] = payload
-	# $claims[2] = signature
-	#
-	@claims = split(/\./, "$JWT");
-}
-
-#
-# always validate signed responses
-# if we don't yet have it, get the public key for signature validation
-#
-if(defined $result->{'certificateChain'}) {
-	$certificateChain = $result->{'certificateChain'};
-} else {
-	my $pkchallenge = sprintf("%08X", rand(0xffffffff));
-	my $pkresult = get_entropy($certChainURL, $pkchallenge);
-	$certificateChain = $pkresult->{'certificateChain'};
-}
-
-if($certchain == 1) {
-	if(defined $certificateChain) {
-		printf("%s", $certificateChain);
-		# do not exit; we may need to process web tokens
-	} else {
-		printf("Error: unable to process getCerChain request\n");
-		exit 1;
-	}
-}
-
-#
-# check (unsigned) freshness of response as appropriate
-#
-if(defined $result->{'timestsamp'}) {
-	if(($result->{'timestamp'} - $time) > $window) {
-		printf("Error: stale response from server outside window.\n");
-		exit 1;
-	}
-}
-
-#
-# check (unsigned) challenge in response as appropriate
-#
-if(defined $result->{'challenge'}) {
-	if($result->{'challenge'} ne $challenge) {
-		printf("Error: received challenge does not match request.\n");
-		exit 1;
-	}
-}
-
-#
-# validate signature (this is a bit chunky)
-#
-
-#
-# write the certificate chain file
-#
-my $certfile = "/tmp/certificateChain.$$";
-open(FH, '>', $certfile) or die $!;
-print FH $certificateChain;
-close FH or die $!;
-
-#
-# write the public key to file
-#
-my $keyfile = "/tmp/pubkey.$$";
-system("openssl x509 -in $certfile -pubkey -noout > $keyfile");
-if($? != 0) {
-	printf("Error: unable to generate key from certificate chain.\n");
-	exit 1;
-}
-
-#
-# write the base64url encoded JWT "header" + "." + "payload" to file
-#
-my $tfile = "/tmp/tfile.$$";
-open(FH, '>', $tfile) or die $!;
-print FH "$claims[0].$claims[1]";
-close FH or die $!;
-
-#
-# write DER encoded signature to file
-#
-my $sigfile = "/tmp/sigfile.$$";
-write_signature_file(decode_base64url($claims[2]), $sigfile);
-
-#
-# perform signature verification
-#
-my $r=`openssl dgst -sha384 -verify $keyfile -signature $sigfile $tfile`;
-if($r !~ /Verified OK/) {
-	printf("r = %s\n", $r);
-	printf("Error: unable to verify signature.\n");
-	exit 1;
-} else {
-	if($verbose == 1) {
-		printf("Claims signature verified successfully.\n");
-	}
-}
-
-#
-# delete temporary files (comment out these lines for debugging)
-#
-foreach ($certfile, $keyfile, $sigfile, $tfile) {
-	unlink $_ or warn $!;
-}
-
-#
-# confirm response matchs signed claims
-#
-my $claims_decoded = decode_base64url($claims[1]);
-my $signed_json = decode_json($claims_decoded);
-
-#
-# getCertChain
-#
-if(defined $signed_json->{'certificateChain'}) {
-	#
-	# signed certificateChain
-	#
-	if($certificateChain ne $signed_json->{'certificateChain'}) {
-		printf("Error: signed certificateChain does not match.\n");
-		exit 1;
-	}
-	# nothing else to do for a getCertChain request
-	exit 0;
-}
-
-#
-# getEntropy
-#
-if(defined $signed_json->{'challenge'}) {
-
-#
-# signed challenge
-#
-if($challenge ne $signed_json->{'challenge'}) {
-	printf("Error: signed challenge does not match.\n");
-	exit 1;
-} else {
-	if($verbose == 1) {
-		printf("Signed challenge matches ($challenge).\n");
-	}
-}
-
-#
-# signed timestamp
-#
-if($result->{'timestamp'} ne $signed_json->{'timestamp'}) {
-	printf("Error: signed timestamp does not match.\n");
-	exit 1;
-} else {
-	if($verbose == 1) {
-		printf("Signed timestamp matches ($result->{'timestamp'}).\n");
-	}
-}
-
-#
-# signed entropy
-#
-if($result->{'entropy'} ne $signed_json->{'entropy'}) {
-	printf("Error: signed entropy does not match.\n");
-	exit 1;
-} else {
-	$result->{'entropy'} =~ s/=$//g;
-	if($verbose == 1) {
-		printf("Signed entropy matches ($result->{'entropy'}).\n");
-	}
-}
-
-} # end getEntropy
-
-if($verbose) {
-	printf("Mixing entropy from Spore server with local random.\n");
-}
-
-my $entropy_string = mix_entropy($result->{'entropy'});
-
-#
-# write (mixed) entropy to /dev/urandom, or display if no write permissions
-#
-if(defined $result->{'entropy'}) {
-	my $filename = '/dev/urandom';
-	if(not -w $filename) {
-		printf("Warning: $filename is not writable.\n");
-		printf("Warning: displaying (mixed) entropy for future use:\n");
-		printf("%s\n", $entropy_string);
-		exit 1;
-	} else {
-		if($verbose == 1) {
-			printf("Seeding entropy to /dev/urandom.\n");
+	my $pollInterval = 3; # Default 3 seconds.
+	if ($service_config{'pollInterval'}) {
+		$pollInterval = $service_config{'pollInterval'};
+		if ($verbose) {
+			print "spore-seeder service pollInterval: " . $pollInterval . "\n";
 		}
-		open(FH, '>', $filename) or die $!;
-		print FH $entropy_string;
-		close FH;
-		exit 0;
 	}
+	my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
+	if ($service_config{'address'}) {
+		$entropyURL = "http://$service_config{'address'}/eaasp/getEntropy";
+		if ($verbose) {
+			print "spore-seeder service url: " . $entropyURL . "\n";
+		}
+	}
+	while (1) {
+		my $validateSig = uc($service_config{'verify'}) eq 'TRUE';
+		main($entropyURL, $info, $certchain, $service, $verbose, $validateSig);
+		sleep($pollInterval);
+	}
+} else {
+	main($URL, $info, $certchain, $service, $verbose);
 }
