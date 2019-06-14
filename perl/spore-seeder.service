@@ -1,8 +1,8 @@
 [Unit]
 Description=Spore Seeder
-ConditionFileExecutable=/user/local/spore-seeder/spore-seeder.pl
 
 [Service]
+AmbientCapabilities=CAP_SYS_ADMIN
 ExecStart=/usr/local/share/spore-seeder/spore-seeder.pl -sv
 Type=simple
 User=spore

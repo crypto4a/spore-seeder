@@ -13,11 +13,15 @@ use HTTP::Tiny;
 use JSON::PP;
 use MIME::Base64 qw(decode_base64url);
 use Data::Dumper;
+use Getopt::Long;
+
+# rng address
+my $RNDADDENTROPY = 0x40085203;
 
 #
 # Spore server and URLs
 #
-my $sporeServer = "entropy.2keys.io";
+my $sporeServer = "rootofqaos.com";
 my $infoURL = "http://$sporeServer/eaasp/getInfo";
 my $certChainURL = "http://$sporeServer/eaasp/getCertChain";
 my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
@@ -47,6 +51,14 @@ p will attempt to verify signatures whenever possible.
 
 EOT
 exit 1;
+}
+
+sub is_true {
+	my ($value) = @_;
+	if (!$value) {
+		return 0;
+	}
+	return uc($value) eq 'TRUE';
 }
 
 sub parse_config {
@@ -235,17 +247,12 @@ sub validate_signature {
 	return 1;
 }
 
-sub add_entropy {
-	my ($result, $verbose) = @_;
-	if($verbose) {
-		printf("Mixing entropy from Spore server with local random.\n");
-	}
-
-	my $entropy_string = mix_entropy($result->{'entropy'});
-
-	#
-	# write (mixed) entropy to /dev/urandom, or display if no write permissions
-	#
+#
+# Contribute the entropy without increasing the reading of
+# /proc/sys/kernel/random/entropy_avail
+#
+sub contribute_entropy {
+	my ($result, $entropy_string, $verbose) = @_;
 	if(defined $result->{'entropy'}) {
 		my $filename = '/dev/urandom';
 		if(not -w $filename) {
@@ -262,6 +269,36 @@ sub add_entropy {
 			close FH;
 		}
 	}
+}
+
+
+sub add_entropy {
+	my ($result, $verbose) = @_;
+	if($verbose) {
+		printf("Mixing entropy from Spore server with local random.\n");
+	}
+	my $entropy_string = mix_entropy($result->{'entropy'});
+
+	if (!open(RD, ">>/dev/random")) {
+		printf "Error: cannot open /dev/random for writing.\n";
+		# fall back to contribution only.
+		return contribute_entropy($result, $entropy_string, $verbose);
+	}
+
+	# Try to add entropy and increase the reading.
+	my $size = length($entropy_string);
+	my $entropy_pack = pack("i i a".$size, $size * 8, $size, $entropy_string);
+	if (!ioctl(RD, $RNDADDENTROPY, $entropy_pack)) {
+		if ($verbose) {
+			printf "Error: failed to perform ioctl with RNDADDENTROPY.\n";
+		}
+		close RD;
+		# fall back to contribution only.
+		return contribute_entropy($result, $entropy_string, $verbose);
+	} elsif ($verbose) {
+		printf "Successfully add entropy through ioctl with RNDADDENTROPY.\n";
+	}
+	close RD;
 }
 
 sub check_claims {
@@ -333,14 +370,41 @@ sub check_claims {
 	return 1;
 }
 
-sub main {
-	my ($URL, $info, $certchain, $service, $verbose, $validateSig) = @_;
+# Read the value of /proc/sys/kernel/random/entropy_avail
+sub avail_entropy {
+	my ($verbose) = @_;
+	my $level = 5000;
+	if (!open(LEVEL,"/proc/sys/kernel/random/entropy_avail")) {
+		print "Failed to read /proc/sys/kernel/random/entropy_avail";
+		return;
+	}
+	$level = <LEVEL>;
+	close(LEVEL);
+	chomp($level);
+	if ($verbose) {
+		print "Current avail entropy: " . $level . "\n";
+	}
+	return $level;
+}
+
+sub do_seeding {
+	my ($URL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold) = @_;
 	my $certificateChain = "";
 	my @claims;
 	my $challenge = sprintf("%08X", rand(0xffffffff));
 	my $window = 60;
 	my $time = time();
 
+	if ($autoSeed) {
+		my $entropy = avail_entropy($verbose);
+		if (int($entropy) > int($threshold)) {
+			return;
+		} elsif ($verbose) {
+			print "Below threshold " . $threshold . ". Start seeding ...\n";
+		}
+	}
+
+SEED:
 	my $result = get_entropy($URL, $challenge);
 	if($result == 1) {
 		printf("Error: Failed to contact spore server: $sporeServer\n");
@@ -436,8 +500,19 @@ sub main {
 	}
 
 	add_entropy($result, $verbose);
+	if ($autoSeed) {
+		my $entropy = avail_entropy($verbose);
+		if (int($entropy) < int($threshold)) {
+			goto SEED;
+		} elsif ($verbose) {
+			print "Reach threshold " . $threshold . ". Pause auto-seeding.\n";
+		}
+	}
 }
 
+#
+# Start of program
+#
 my $certchain = 0;
 my $info = 0;
 my $verbose = 0;
@@ -499,6 +574,20 @@ if ($service) {
 			print "spore-seeder service pollInterval: " . $pollInterval . "\n";
 		}
 	}
+	my $autoSeed = 0;
+	if (is_true($service_config{'autoSeed'})) {
+		$autoSeed = 1;
+		if ($verbose) {
+			print "spore-seeder service auto seed\n";
+		}
+	}
+	my $threshold = 3800; # Default threshold.
+	if ($service_config{'entropyThreshold'}) {
+		$threshold = $service_config{'entropyThreshold'};
+		if ($verbose) {
+			print "spore-seeder entropy threshold: " . $threshold . "\n";
+		}
+	}
 	my $entropyURL = "http://$sporeServer/eaasp/getEntropy";
 	if ($service_config{'address'}) {
 		$entropyURL = "http://$service_config{'address'}/eaasp/getEntropy";
@@ -507,10 +596,15 @@ if ($service) {
 		}
 	}
 	while (1) {
-		my $validateSig = uc($service_config{'verify'}) eq 'TRUE';
-		main($entropyURL, $info, $certchain, $service, $verbose, $validateSig);
-		sleep($pollInterval);
+		my $validateSig = is_true($service_config{'verify'});
+		do_seeding($entropyURL, $info, $certchain, $service, $verbose, $validateSig, $autoSeed, $threshold);
+		if ($autoSeed) {
+			# Sleep 0.5 second before checking the entropy.
+			select(undef, undef, undef, 0.5);
+		} else {
+			sleep($pollInterval);
+		}
 	}
 } else {
-	main($URL, $info, $certchain, $service, $verbose);
+	do_seeding($URL, $info, $certchain, $service, $verbose);
 }
