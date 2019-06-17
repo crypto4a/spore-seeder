@@ -3,6 +3,21 @@ Spore Seeder for Perl
 
 This is an implementation of spore-seeder in Perl. It can be run as standalone program, or as a system service.
 
+Commnad Line Options
+----
+
+```
+Usage: perl spore-seeder.pl [option(s)]
+ The options are:
+  -u, --url             Set the spore server address. Default: rootofqaos.com
+  -c, --certificate     Retrieve the Spore server certificate chain.
+  -i, --info            Retrieve information about the Spore service.
+  -s, --service         Run in system service mode.
+  -n, --no-sig          Skip signature verification.
+  -v, --verbose         Show additional messages.
+  -h, --help            Display this information.
+```
+
 Standalone Program
 ----
 
@@ -18,6 +33,12 @@ Use the `-v` option to show informational messages:
 
 ```
 ./spore-seeder.pl -v
+```
+
+Use the `-u` option to set the spore server:
+
+```
+./spore-seeder.pl -u rootofqaos.com -v
 ```
 
 Run as System Service
@@ -93,9 +114,5 @@ autoSeed=True
 entropyThreshold=3000
 ```
 
-
-Todo
-----
-Change the simple command line option to the standard GNU command line option.
 
 

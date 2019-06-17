@@ -24,16 +24,16 @@ my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
 #
 sub usage {
 	my ($exit_code) = @_;
-print <<'EOT';
+	print <<'EOT';
 Usage: perl spore-seeder.pl [option(s)]
  The options are:
   -u, --url             Set the spore server address.
-  -c, --certificate		Retrieve the Spore server certificate chain.
-  -i, --info			Retrieve information about the Spore service.
-  -s, --service			Run in service mode.
+  -c, --certificate     Retrieve the Spore server certificate chain.
+  -i, --info            Retrieve information about the Spore service.
+  -s, --service         Run in service mode.
   -n, --no-sig          Skip signature verification.
-  -v, --verbose			Show additional messages.
-  -h, --help			Display this information.
+  -v, --verbose         Show additional messages.
+  -h, --help            Display this information.
 
 EOT
 exit $exit_code;
@@ -234,8 +234,7 @@ sub validate_signature {
 }
 
 #
-# Contribute the entropy without increasing the reading of
-# /proc/sys/kernel/random/entropy_avail
+# Contribute the entropy without increasing entropy estimate.
 #
 sub contribute_entropy {
 	my ($result, $entropy_string, $verbose) = @_;
@@ -357,6 +356,7 @@ sub check_claims {
 }
 
 # Read the value of /proc/sys/kernel/random/entropy_avail
+# Note: does not work on BSD OS.
 sub avail_entropy {
 	my ($verbose) = @_;
 	my $level = 5000;
