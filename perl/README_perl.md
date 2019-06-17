@@ -18,6 +18,16 @@ Usage: perl spore-seeder.pl [option(s)]
   -h, --help            Display this information.
 ```
 
+Prerequites
+---
+The perl version of spore-seeder has been tested on Ubuntu 18.04 and Centos 7.6. For a clean CentOS without Perl, here are the command lines to install Perl and required modules:
+
+```
+sudo yum install perl
+sudo yum install perl perl-JSON-PP
+```
+
+
 Standalone Program
 ----
 
