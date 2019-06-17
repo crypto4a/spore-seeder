@@ -50,7 +50,7 @@ To install and run as a system service:
 sudo ./install.sh
 ```
 
-The above command will install spore-seeder as a system service and start it. To confirm that the service is runing:
+The above command installs spore-seeder as a system service and starts service. The service runs as “spore” user. To confirm that the service is running:
 
 ```
 ps -ef | grep spore
@@ -74,7 +74,7 @@ sudo journalctl --unit=spore-seeder | tail
 By default, spore-seeder monitors the entropy pool by reading the value of `/proc/sys/kernel/random/entropy_avail`.
 If the reading is smaller than the threshold, it will start to seed the entropy pool by getting high entropy random data from the server.
 
-To show that auto-seeding is working, deplete the entropy pool by running:
+To show that auto-seeding is working, drain the entropy pool by running:
 ```
 cat /dev/random
 ```
