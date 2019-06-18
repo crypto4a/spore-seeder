@@ -1,0 +1,7 @@
+#!/bin/ksh
+
+daemon="/usr/sbin/spore-seeder.pl --service"
+
+. /etc/rc.d/rc.subr
+
+rc_cmd $1

@@ -19,6 +19,11 @@ use Getopt::Long;
 my $RNDADDENTROPY = 0x40085203;
 my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
 
+my $OS = `uname`;
+if ($OS =~ /OpenBSD/) {
+	$SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service-bsd.config";
+}
+
 #
 # Usage
 #
@@ -27,7 +32,7 @@ sub usage {
 	print <<'EOT';
 Usage: perl spore-seeder.pl [option(s)]
  The options are:
-  -u, --url             Set the spore server address.
+  -u, --url             Set the spore server address. Default: rootofqaos.com
   -c, --certificate     Retrieve the Spore server certificate chain.
   -i, --info            Retrieve information about the Spore service.
   -s, --service         Run in service mode.

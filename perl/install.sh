@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This script does not work on OpenBSD.
+OSNAME=$(uname)
+if [[ "$OSNAME" =~ "OpenBSD" ]];
+then
+    echo "This installation script does not support OpenBSD. Run install_bsd.sh instead."
+    exit 1
+fi
+
 # $USER_PWD gets the path of the folder from which the self-extracting script
 # is executed.
 
