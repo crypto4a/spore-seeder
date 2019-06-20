@@ -1,7 +1,7 @@
-Spore Seeder for Perl
+Spore Seeder for Perl on OpenBSD
 ====
 
-This is an implementation of spore-seeder in Perl. It can be run as standalone program, or as a system service.
+This is an experiemental implementation of spore-seeder in Perl for OpenBSD. It can be run as standalone program, or as a system service.
 
 Commnad Line Options
 ----
@@ -17,16 +17,6 @@ Usage: perl spore-seeder.pl [option(s)]
   -v, --verbose         Show additional messages.
   -h, --help            Display this information.
 ```
-
-Prerequites
----
-The perl version of spore-seeder has been tested on Ubuntu 18.04 and Centos 7.6. For a clean CentOS without Perl, here are the command lines to install Perl and required modules:
-
-```
-sudo yum install perl
-sudo yum install perl perl-JSON-PP
-```
-
 
 Standalone Program
 ----
@@ -68,38 +58,15 @@ ps -ef | grep spore
 
 To stop the service:
 ```
-systemctl stop spore-seeder
+rcctl stop sporeseeder
 ```
 
 To start the service again:
 ```
-systemctl start spore-seeder
+rcctl start sporeseeder
 ```
 
-To view the log of spore-seeder system service:
-```
-sudo journalctl --unit=spore-seeder | tail
-```
-
-By default, spore-seeder monitors the entropy pool by reading the value of `/proc/sys/kernel/random/entropy_avail`.
-If the reading is smaller than the threshold, it will start to seed the entropy pool by getting high entropy random data from the server.
-
-To show that auto-seeding is working, drain the entropy pool by running:
-```
-cat /dev/random
-```
-
-Check the entropy pool and it should be quite small:
-```
-cat /proc/sys/kernel/random/entropy_avail
-```
-
-Check spore-seeder is seeding:
-```
-sudo journalctl --unit=spore-seeder | tail
-```
-
-The configuration file is `/usr/local/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
+By default, spore-seeder polls the spore server every 180 seconds. The interval can be changed in the system service configuration file. The configuration file is `/usr/local/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
 
 
 ```
@@ -115,13 +82,6 @@ verify=True
 # How often spore-seeder should poll the server, in seconds.
 # This value is used when autoSeed is False.
 pollInterval=180
-
-# Should seeder monitor the entropy reading and seed it when it is below a threshold.
-autoSeed=True
-
-# The threshold of entropy. Seeder will start to seed once entropy reading is
-# below this value.
-entropyThreshold=3000
 ```
 
 

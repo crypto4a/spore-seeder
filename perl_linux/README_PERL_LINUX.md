@@ -1,4 +1,4 @@
-Spore Seeder for Perl
+Spore Seeder for Perl on Linux
 ====
 
 This is an implementation of spore-seeder in Perl. It can be run as standalone program, or as a system service.
@@ -26,7 +26,6 @@ The perl version of spore-seeder has been tested on Ubuntu 18.04 and Centos 7.6.
 sudo yum install perl
 sudo yum install perl perl-JSON-PP
 ```
-
 
 Standalone Program
 ----
@@ -123,6 +122,3 @@ autoSeed=True
 # below this value.
 entropyThreshold=3000
 ```
-
-
-
