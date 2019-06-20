@@ -31,6 +31,7 @@ cp spore-seeder-service.config /usr/local/etc/spore-seeder/.
 
 mkdir -p /usr/local/share/spore-seeder
 cp spore-seeder.pl /usr/local/share/spore-seeder/.
+cp ../perl_common/SporeCommon.pm /usr/local/share/spore-seeder/.
 chmod a+x /usr/local/share/spore-seeder/spore-seeder.pl
 
 # Create user
