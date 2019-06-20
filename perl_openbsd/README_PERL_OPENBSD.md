@@ -3,7 +3,7 @@ Spore Seeder for Perl on OpenBSD
 
 This is an experiemental implementation of spore-seeder in Perl for OpenBSD. It can be run as standalone program, or as a system service.
 
-Commnad Line Options
+Command Line Options
 ----
 
 ```

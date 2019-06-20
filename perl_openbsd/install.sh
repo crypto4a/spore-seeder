@@ -1,13 +1,5 @@
 #!/bin/ksh
 
-# This script does not work on Linux.
-OSNAME=$(uname)
-if [[ "$OSNAME" =~ "Linux" ]];
-then
-    echo "This installation script does not support Linux. Run install.sh instead."
-    exit 1
-fi
-
 USER="spore"
 SPORESRV="spore-seeder"
 

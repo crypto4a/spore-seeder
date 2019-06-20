@@ -3,7 +3,7 @@ Spore Seeder for Perl on Linux
 
 This is an implementation of spore-seeder in Perl. It can be run as standalone program, or as a system service.
 
-Commnad Line Options
+Command Line Options
 ----
 
 ```
@@ -18,7 +18,7 @@ Usage: perl spore-seeder.pl [option(s)]
   -h, --help            Display this information.
 ```
 
-Prerequites
+Prerequisites
 ---
 The perl version of spore-seeder has been tested on Ubuntu 18.04 and Centos 7.6. For a clean CentOS without Perl, here are the command lines to install Perl and required modules:
 
