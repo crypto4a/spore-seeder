@@ -1,7 +1,7 @@
 Spore Seeder for Perl on OpenBSD
 ====
 
-This is an experiemental implementation of spore-seeder in Perl for OpenBSD. It can be run as standalone program, or as a system service.
+This is an experimental implementation of spore-seeder in Perl for OpenBSD. It can be run as standalone program, or as a system service.
 
 Command Line Options
 ----
@@ -73,7 +73,7 @@ By default, spore-seeder polls the spore server every 180 seconds. The interval 
 # Default configurations for the Spore Seeder Service
 
 # This is the queried Spore server's address.
-address=entropy.2keys.io
+address=rootofqaos.com
 
 # This value indicates whether or not the signature should be verified.
 # Set to false if the signature should not be verified.

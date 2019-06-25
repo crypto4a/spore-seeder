@@ -20,7 +20,7 @@ Usage: perl spore-seeder.pl [option(s)]
 
 Prerequisites
 ---
-The perl version of spore-seeder has been tested on Ubuntu 18.04 and Centos 7.6. For a clean CentOS without Perl, here are the command lines to install Perl and required modules:
+The perl version of spore-seeder has been tested on Ubuntu 18.04 and CentOS 7.6. For a clean CentOS without Perl, here are the command lines to install Perl and required modules:
 
 ```
 sudo yum install perl
@@ -105,7 +105,7 @@ The configuration file is `/usr/local/etc/spore-seeder/spore-seeder-service.conf
 # Default configurations for the Spore Seeder Service
 
 # This is the queried Spore server's address.
-address=entropy.2keys.io
+address=rootofqaos.com
 
 # This value indicates whether or not the signature should be verified.
 # Set to false if the signature should not be verified.
