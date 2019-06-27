@@ -35,7 +35,6 @@ cp ../perl_common/SporeCommon.pm /usr/local/share/spore-seeder/.
 chmod a+x /usr/local/share/spore-seeder/spore-seeder.pl
 
 # Create user
-mkdir -p /var/cache/$USER
 if ! getent passwd $USER >/dev/null
 then
     adduser --system --home /var/cache/$USER $ADDUSERGROUP daemon $USER \
