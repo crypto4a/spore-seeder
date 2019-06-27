@@ -6,9 +6,11 @@
 USER="spore"
 SYSTEMDIR=/usr/local/lib/systemd/system
 SPORESRV="spore-seeder"
+LOCAL_DIR=~/.spore-seeder
 
 # Remove spore-seeder config.
 rm -rf /etc/spore-seeder
+rm -rf $LOCAL_DIR
 
 # Remove spore-seeder script
 rm -rf /usr/local/share/spore-seeder

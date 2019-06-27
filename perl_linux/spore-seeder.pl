@@ -84,7 +84,7 @@ sub add_entropy {
 	my $entropy_pack = pack("i i a".$size, $size * 8, $size, $entropy_string);
 	if (!ioctl(RD, $RNDADDENTROPY, $entropy_pack)) {
 		if ($verbose) {
-			printf "Error: failed to perform ioctl with RNDADDENTROPY.\n";
+			printf "Warning: failed to perform ioctl with RNDADDENTROPY.\n";
 		}
 		close RD;
 		# fall back to contribution only.

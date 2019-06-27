@@ -12,7 +12,8 @@ Usage: perl spore-seeder.pl [option(s)]
   -u, --url             Set the spore server address. Default: rootofqaos.com
   -c, --certificate     Retrieve the Spore server certificate chain.
   -i, --info            Retrieve information about the Spore service.
-  -s, --service         Run in system service mode.
+  -s, --service         Run in service mode.
+  -f, --config          Set the configuration file. Default: /etc/spore-seeder/spore-seeder-service.config
   -n, --no-sig          Skip signature verification.
   -v, --verbose         Show additional messages.
   -h, --help            Display this information.
@@ -30,10 +31,17 @@ sudo yum install perl perl-JSON-PP
 Standalone Program
 ----
 
-To run spore-seeder as standalone program, run the following command:
+To install spore-seeder as standalone program, run the following command:
 
 ```
-./spore-seeder.pl
+./install.sh --local
+```
+This will install spore-seeder in `$HOME/.spore-seeder`.
+
+To run the seeder:
+
+```
+spore-seeder
 ```
 
 It will get the entropy from default server `rootofqaos.com` and add the entropy to `/dev/urandom`.
@@ -41,13 +49,13 @@ It will get the entropy from default server `rootofqaos.com` and add the entropy
 Use the `-v` option to show informational messages:
 
 ```
-./spore-seeder.pl -v
+spore-seeder -v
 ```
 
 Use the `-u` option to set the spore server:
 
 ```
-./spore-seeder.pl -u rootofqaos.com -v
+spore-seeder -u rootofqaos.com -v
 ```
 
 Run as System Service

@@ -1,5 +1,24 @@
 #!/bin/bash
 
+USER="spore"
+SYSTEMDIR=/usr/local/lib/systemd/system
+SPORESCRIPT="spore-seeder.pl"
+SPORESRV="spore-seeder"
+LOCAL_DIR=$HOME/.spore-seeder/bin
+
+local_install () {
+  echo "Local installation ..."
+  mkdir -p $LOCAL_DIR
+  cp $SPORESCRIPT $LOCAL_DIR/.
+  cp ../perl_common/SporeCommon.pm $LOCAL_DIR/.
+  rm $LOCAL_DIR/$SPORESRV 2> /dev/null
+  ln -s $LOCAL_DIR/$SPORESCRIPT $LOCAL_DIR/$SPORESRV
+  echo "export PATH=\$PATH:$LOCAL_DIR" >> ~/.profile
+  . ~/.profile
+  echo "spore-seeder installed in $HOME/.spore-seeder/bin"
+  exit 0
+}
+
 # This script does not work on OpenBSD.
 OSNAME=$(uname)
 if [[ "$OSNAME" =~ "OpenBSD" ]];
@@ -8,14 +27,10 @@ then
     exit 1
 fi
 
-# $USER_PWD gets the path of the folder from which the self-extracting script
-# is executed.
-
-USER="spore"
-SYSTEMDIR=/usr/local/lib/systemd/system
-SPORESRV="spore-seeder"
-
-# SRCDIR=$(dirname $0)
+if [[ "$1" = "--local" ]];
+then
+    local_install
+fi
 
 # Differences between Ubuntu and Red Hat
 OSVERSION=$(cat /proc/version)
