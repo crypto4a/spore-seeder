@@ -66,7 +66,7 @@ To start the service again:
 rcctl start sporeseeder
 ```
 
-By default, spore-seeder polls the spore server every 180 seconds. The interval can be changed in the system service configuration file. The configuration file is `/usr/local/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
+By default, spore-seeder polls the spore server every 180 seconds. The interval can be changed in the system service configuration file. The configuration file is `/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
 
 
 ```

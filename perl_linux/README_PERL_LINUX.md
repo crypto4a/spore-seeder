@@ -98,7 +98,7 @@ Check spore-seeder is seeding:
 sudo journalctl --unit=spore-seeder | tail
 ```
 
-The configuration file is `/usr/local/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
+The configuration file is `/etc/spore-seeder/spore-seeder-service.config`. Here is an example of the service configuration file:
 
 
 ```

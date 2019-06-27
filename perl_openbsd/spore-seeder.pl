@@ -37,7 +37,7 @@ use lib $FindBin::Bin;
 use lib '../perl_common';
 use SporeCommon;
 
-my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
+my $SERVICE_CONFIG = "/etc/spore-seeder/spore-seeder-service.config";
 
 
 #

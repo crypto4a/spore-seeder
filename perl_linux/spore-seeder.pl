@@ -39,7 +39,7 @@ use SporeCommon;
 
 # rng address
 my $RNDADDENTROPY = 0x40085203;
-my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
+my $SERVICE_CONFIG = "/etc/spore-seeder/spore-seeder-service.config";
 
 
 #
@@ -254,9 +254,10 @@ my $help = 0;
 my $opt_url = '';
 my $URL = "";
 my $skip_sig_validate = 0;
+my $config = $SERVICE_CONFIG;
 
 SporeCommon::get_options(\$certchain, \$info, \$verbose, \$help,
-	\$service, \$opt_url, \$skip_sig_validate);
+	\$service, \$opt_url, \$skip_sig_validate, \$config);
 
 if ($certchain && $info) {
 	print "Error: --certificate (-c) and --info (-i) cannot be specified togother.\n";
@@ -294,7 +295,7 @@ if($verbose == 1) {
 }
 
 if ($service) {
-	my %service_config = %{SporeCommon::parse_config($SERVICE_CONFIG)};
+	my %service_config = %{SporeCommon::parse_config($config)};
 	$verbose = SporeCommon::is_true($service_config{'verbose'});
 	if ($verbose) {
 		print "Service Config:\n";

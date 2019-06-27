@@ -26,8 +26,8 @@ then
 fi
 
 # Copy files
-mkdir -p /usr/local/etc/spore-seeder
-cp spore-seeder-service.config /usr/local/etc/spore-seeder/.
+mkdir -p /etc/spore-seeder
+cp spore-seeder-service.config /etc/spore-seeder/.
 
 mkdir -p /usr/local/share/spore-seeder
 cp spore-seeder.pl /usr/local/share/spore-seeder/.

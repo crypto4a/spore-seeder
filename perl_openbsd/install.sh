@@ -5,8 +5,8 @@ SPORESRV="spore-seeder"
 
 
 # Copy files
-mkdir -p /usr/local/etc/spore-seeder
-cp spore-seeder-service.config /usr/local/etc/spore-seeder/.
+mkdir -p /etc/spore-seeder
+cp spore-seeder-service.config /etc/spore-seeder/.
 
 cp spore-seeder.pl /usr/sbin/.
 cp ../perl_common/SporeCommon.pm /usr/sbin/.

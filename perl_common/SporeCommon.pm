@@ -34,7 +34,7 @@ use Getopt::Long;
 
 # rng address
 my $RNDADDENTROPY = 0x40085203;
-my $SERVICE_CONFIG = "/usr/local/etc/spore-seeder/spore-seeder-service.config";
+my $SERVICE_CONFIG = "/etc/spore-seeder/spore-seeder-service.config";
 
 
 #
@@ -49,6 +49,7 @@ Usage: perl spore-seeder.pl [option(s)]
   -c, --certificate     Retrieve the Spore server certificate chain.
   -i, --info            Retrieve information about the Spore service.
   -s, --service         Run in service mode.
+  -f, --config          Set the configuration file. Default: /etc/spore-seeder/spore-seeder-service.config
   -n, --no-sig          Skip signature verification.
   -v, --verbose         Show additional messages.
   -h, --help            Display this information.
@@ -61,7 +62,7 @@ exit $exit_code;
 # Command line options
 #
 sub get_options {
-	my ($certchain, $info, $verbose, $help, $service, $opt_url, $skip_sig_validate) = @_;
+	my ($certchain, $info, $verbose, $help, $service, $opt_url, $skip_sig_validate, $config) = @_;
 	GetOptions(
 		"certificate" 	=> $certchain,
 		"info"   		=> $info,
@@ -69,7 +70,8 @@ sub get_options {
 		"help"  		=> $help,
 		"service"  		=> $service,
 		"url=s"    		=> $opt_url,
-		"no-sig"        => $skip_sig_validate
+		"no-sig"        => $skip_sig_validate,
+		"config|f=s"    => $config
 	) or usage(1);
 
 	if ($$help) {
