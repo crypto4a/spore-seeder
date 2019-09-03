@@ -3,8 +3,8 @@ Spore Seeder
 
 Spore Seeder is an entropy-seeding utility implemented in Perl, and supporting different platforms:
 
-    * [Linux Perl](perl/README_PERL_LINUX.md)
-    * [OpenBSD Perl (experimental)](perl/README_PERL_OPENBSD.md)
+* [Linux Perl](perl_linux/README_PERL_LINUX.md)
+* [OpenBSD Perl (experimental)](perl_openbsd/README_PERL_OPENBSD.md)
 
 ## Known Spore Servers
 - rootofqaos.com
